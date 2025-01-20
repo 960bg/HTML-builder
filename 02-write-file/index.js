@@ -82,10 +82,6 @@ void (async function () {
       });
     });
   }
-
-  async function createFile(filePath) {
-    return new Promise((resolve) => {});
-  }
 })();
 
 // 02-write-file
