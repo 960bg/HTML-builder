@@ -27,7 +27,12 @@ async function copyDir(pathToDir) {
   console.log('path.resolve(__dirname, copyDir)');
   console.log(path.resolve(__dirname, copyDir));
 
-  if (await isDir(path.resolve(__dirname, copyDir))) {
+  // if (await isDir(path.resolve(__dirname, copyDir))) {
+  const isCopyDirExist = await isPathExist(path.resolve(__dirname, copyDir));
+  console.log('isCopyDirExist');
+  console.log(isCopyDirExist);
+
+  if (isCopyDirExist) {
     await removeDir(path.resolve(__dirname, copyDir));
     console.log(`Папка ${path.resolve(pathToDir, copyDir)} удалена`);
   }
@@ -129,6 +134,37 @@ async function copyFiles(fileList, srcPathDir, copyPathDir) {
  */
 async function removeDir(pathRm) {
   return new Promise((resolve) => {
-    fs.rmDir(pathRm);
+    const pathToDir = path.join(pathRm, path.sep);
+
+    console.log('[function removeDir: pathRm]', pathToDir);
+
+    fs.rm(pathToDir, { recursive: true, force: true }, (err) => {
+      if (err) {
+        console.log('[Ошибка. function removeDir]');
+        console.log(err);
+      }
+      console.log('function removeDir: done', pathRm);
+      resolve();
+    });
+  });
+}
+
+async function isPathExist(pathS) {
+  return new Promise((resolve) => {
+    fs.access(pathS, (err) => {
+      if (err) {
+        if (err.code === 'ENOENT') {
+          console.log(
+            '[function isPathExist]: указанного каталога или файла нет',
+          );
+          resolve(false);
+          return;
+        }
+
+        console.log('[Ошибка. function isPathExist]');
+        console.log(err);
+      }
+      resolve(true);
+    });
   });
 }
