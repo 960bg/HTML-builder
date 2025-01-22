@@ -219,14 +219,22 @@ async function removeDir(pathRm) {
  * @returns массив имен которые есть в двух массивах
  */
 function compareBlocksToFiles(blocks, files) {
-  const res = files.filter((el) => {
-    if (blocks.includes(el.baseName)) {
+  const filesName = files.reduce((acc, curr) => {
+    acc.push(curr.baseName);
+    return acc;
+  }, []);
+
+  const r = blocks.filter((el) => {
+    if (filesName.includes(el)) {
       return true;
     }
     return false;
   });
 
-  return res;
+  console.log('===============================r');
+  console.log(r);
+
+  return r;
 }
 
 /**
