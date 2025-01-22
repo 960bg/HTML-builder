@@ -149,6 +149,12 @@ async function removeDir(pathRm) {
   });
 }
 
+/**
+ * проверка существования папки
+ *
+ * @param {string} pathS - путь к папке
+ * @returns {boolean} true\false
+ */
 async function isPathExist(pathS) {
   return new Promise((resolve) => {
     fs.access(pathS, (err) => {
