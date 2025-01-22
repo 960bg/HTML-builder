@@ -97,6 +97,7 @@ async function getFilesTemplates(pathToDir) {
     const baseName = path.basename(curr.path, extName);
     curr.baseName = baseName;
     curr.extName = extName;
+    curr[baseName] = curr.path;
   });
 
   return fileTemlates;
@@ -224,17 +225,29 @@ function compareBlocksToFiles(blocks, files) {
     return acc;
   }, []);
 
-  const r = blocks.filter((el) => {
+  const compareNames = blocks.filter((el) => {
     if (filesName.includes(el)) {
       return true;
     }
     return false;
   });
-
   console.log('===============================r');
-  console.log(r);
+  console.log(compareNames);
 
-  return r;
+  const result = [];
+  for (let i = 0; i < compareNames.length; i++) {
+    const el = compareNames[i];
+    for (let j = 0; j < files.length; j++) {
+      const file = files[j];
+      if (el === file.baseName) {
+        result.push(file);
+      }
+    }
+  }
+  console.log('+++++++++++++++++result');
+  console.log(result);
+
+  return result;
 }
 
 /**
