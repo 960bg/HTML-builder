@@ -11,6 +11,9 @@ bEmit.on('createFolderBundleDone', createIndex);
 // События:
 // bEmit.emit('createFolderBundleDone', folderPath);
 
+// Компилирует стили из styles папки в один файл
+//  и помещает его в project-dist/style.css.
+bEmit.on('createFolderBundleDone', createStyles);
 //
 //
 void (async function main() {
@@ -74,9 +77,10 @@ function getNameBlocks(str) {
  * Прочитать папку с блоками для формирования страницы
  *
  * @param {String} pathToDir путь до папки
- * @return {Array} массив имен файлов шаблонов .html
+ * @param {string} [extname='.html'] - разрешения файлов
+ * @return {Array} массив имен файлов с разрешением [extname]
  */
-async function getFilesTemplates(pathToDir) {
+async function getFilesTemplates(pathToDir, extname = '.html') {
   let files = [];
   try {
     files = await readdir(pathToDir, { withFileTypes: true });
@@ -85,7 +89,7 @@ async function getFilesTemplates(pathToDir) {
   }
 
   const fileTemlates = files.filter((el) => {
-    if (el.isFile() && path.extname(el.path) === '.html') {
+    if (el.isFile() && path.extname(el.path) === extname) {
       return true;
     }
     return false;
@@ -134,12 +138,13 @@ async function createFolderBundle() {
 }
 
 /**
+ * Создание бандла index.html
  *
  * @param {string} bundleFolderPath - путь к папке бандла
  * @returns файл индекс.html
  */
 async function createIndex(bundleFolderPath) {
-  console.log('[function createIndex]: start');
+  console.log('[function createIndex]: Создание бандла index.html');
   console.log(bundleFolderPath);
 
   //   прочитать файл шаблона для index.html
@@ -150,7 +155,10 @@ async function createIndex(bundleFolderPath) {
 
   // Прочитать папку с блоками для формирования страницы
   const pathToDirTemplates = path.resolve(__dirname, 'components');
-  const filesNameTemplates = await getFilesTemplates(pathToDirTemplates);
+  const filesNameTemplates = await getFilesTemplates(
+    pathToDirTemplates,
+    '.html',
+  );
   console.log('filesNameTemplates');
   console.log(filesNameTemplates);
 
@@ -161,8 +169,8 @@ async function createIndex(bundleFolderPath) {
   console.log(compareFiles);
 
   // записать содержимое файлов шаблонов из папки components в index.html
-  await writeFileIndex(compareFiles);
-
+  await writeFile(compareFiles, 'index.html');
+  console.log('[function createIndex]: Бандл index.html создан');
   return 'bundleFolderPath.Index.html';
 }
 
@@ -231,8 +239,8 @@ function compareBlocksToFiles(blocks, files) {
     }
     return false;
   });
-  console.log('===============================r');
-  console.log(compareNames);
+  // console.log('===============================r');
+  // console.log(compareNames);
 
   const result = [];
   for (let i = 0; i < compareNames.length; i++) {
@@ -244,22 +252,24 @@ function compareBlocksToFiles(blocks, files) {
       }
     }
   }
-  console.log('+++++++++++++++++result');
-  console.log(result);
+  // console.log('+++++++++++++++++result');
+  // console.log(result);
 
   return result;
 }
 
 /**
  * Записать из файлов в файл
- * @param {Array} files
+ * @param {Array} files - массив файлов для извлечения контента
+ *  и записи в конечный файл
+ * @param {string} nameEndFile - имя конечного файла
  */
-async function writeFileIndex(files) {
-  console.log('[writeFileIndex]: Запись index.html старт.');
+async function writeFile(files, nameEndFile) {
+  console.log(`[writeFile]: Запись ${nameEndFile} старт.`);
 
   // Создать файл бандла
   const bundle = fs.createWriteStream(
-    path.resolve(__dirname, 'project-dist', 'index.html'),
+    path.resolve(__dirname, 'project-dist', nameEndFile),
   );
 
   bundle.on('close', (err) => {
@@ -270,7 +280,7 @@ async function writeFileIndex(files) {
 
     // console.log('bundle.writableEnded');
     // console.log(bundle.writableEnded);
-    console.log('[writeFileIndex]: Запись index.html окончена');
+    console.log(`[writeFileIndex]: Запись ${nameEndFile} окончена`);
   });
 
   for await (const el of files) {
@@ -297,4 +307,28 @@ async function writeFileIndex(files) {
   // console.log(`bundle.emit('close');`);
 
   bundle.emit('close');
+}
+
+/**
+ * Компилирует стили из styles папки в один файл
+ *  и помещает его в project-dist/style.css.
+ */
+async function createStyles() {
+  console.log('[function createStyles]: Создание бандла style.css');
+
+  // Прочитать папку со стилями
+  const pathToDirTemplates = path.resolve(__dirname, 'styles');
+  const filesNameTemplates = await getFilesTemplates(
+    pathToDirTemplates,
+    '.css',
+  );
+  console.log('filesNameTemplates');
+  console.log(filesNameTemplates);
+
+  // сопоставить массив блоков и массив файлов
+  // чтобы выявить только одникаовые вхождения
+
+  // записать содержимое файлов шаблонов в папку project-dist файл style.css
+  await writeFile(filesNameTemplates, 'style.css');
+  console.log('[function createStyles]: Бандл style.css создан');
 }
