@@ -1,19 +1,27 @@
 const fs = require('fs');
 const path = require('path');
 const { readdir } = require('fs/promises');
+const { copyFile } = require('node:fs/promises');
 const evEmitter = require('events');
 //
 
+// События:
+// bEmit.emit('createFolderBundleDone', folderPath);
 const bEmit = new evEmitter();
 
 // сформировать файл index.html из шаблонов папки components
 bEmit.on('createFolderBundleDone', createIndex);
-// События:
-// bEmit.emit('createFolderBundleDone', folderPath);
 
 // Компилирует стили из styles папки в один файл
 //  и помещает его в project-dist/style.css.
 bEmit.on('createFolderBundleDone', createStyles);
+
+// Копирует assets папку в project-dist/assets.
+bEmit.on('createFolderBundleDone', copyAssets);
+
+//
+//
+//
 //
 //
 void (async function main() {
@@ -23,6 +31,65 @@ void (async function main() {
   // сформировать файл index.html из шаблонов папки components
   // bEmit.on('createFolderBundleDone', createIndex);
 })();
+
+/**
+ * создать папку для бандла project-dist
+ */
+async function createFolderBundle() {
+  return new Promise(async (resolve) => {
+    const folderPath = await createDir(path.resolve(__dirname, 'project-dist'));
+    console.log('[function createFolderBundle]: folderPath');
+    console.log(folderPath);
+
+    // создать файл индекса в project-dist/index.html.
+    // Компилирует стили из styles папки в один файл и помещает его в project-dist/style.css.
+    // Копирует assetsпапку в project-dist/assets.
+    bEmit.emit('createFolderBundleDone', folderPath);
+    resolve(folderPath);
+  });
+}
+
+/**
+ * Создать папку
+ * @param {string} pathDir путь по которому создать папку
+ * @param {string} nameDir Имя папки для создания
+ * @return {false} - false если папка не создана
+ * @return {String} -Путь к папке если папка создана
+ */
+async function createDir(pathDir) {
+  const nameDir = path.basename(pathDir);
+  console.log('pathDir', pathDir);
+
+  console.log(
+    `!!!!!!!!!!!!!!!![function createDir]: Создание папки ${nameDir}`,
+  );
+
+  console.log(`[function createDir]: Создание папки ${nameDir}`);
+
+  // проверить существование папки
+  // если есть -удалить
+  const isCopyDirExist = await isPathExist(pathDir);
+  if (isCopyDirExist) {
+    await removeDir(pathDir);
+    console.log(`[function createDir]: Старая папка ${nameDir} удалена`);
+  }
+
+  return new Promise((resolve) => {
+    fs.mkdir(pathDir, (err) => {
+      if (err) {
+        console.log(
+          `Ошибка [function createDir] fs.mkdir путь ${nameDir} не создан`,
+          err,
+        );
+        resolve(false);
+        return err;
+      }
+
+      console.log(`[function createDir]: Папка ${nameDir} создана.`);
+      resolve(pathDir);
+    });
+  });
+}
 
 /**
  * прочитать файл
@@ -108,36 +175,6 @@ async function getFilesTemplates(pathToDir, extname = '.html') {
 }
 
 /**
- * создать папку для бандла project-dist
- */
-async function createFolderBundle() {
-  const folderPath = path.resolve(__dirname, 'project-dist');
-  // проверить существование папки
-  // если есть -удалить
-  const isCopyDirExist = await isPathExist(folderPath);
-  if (isCopyDirExist) {
-    await removeDir(folderPath);
-    console.log(`Папка ${folderPath} удалена`);
-  }
-
-  return new Promise((resolve) => {
-    fs.mkdir(folderPath, (err) => {
-      if (err) {
-        console.log('Ошибка в function createFolderBundle fs.mkdir');
-        return err;
-      }
-      console.log('Папка project-dist создана.');
-
-      // создать файл индекса в project-dist/index.html.
-      // Компилирует стили из styles папки в один файл и помещает его в project-dist/style.css.
-      // Копирует assetsпапку в project-dist/assets.
-      bEmit.emit('createFolderBundleDone', folderPath);
-      resolve(folderPath);
-    });
-  });
-}
-
-/**
  * Создание бандла index.html
  *
  * @param {string} bundleFolderPath - путь к папке бандла
@@ -185,15 +222,15 @@ async function isPathExist(pathS) {
     fs.access(pathS, (err) => {
       if (err) {
         if (err.code === 'ENOENT') {
-          console.log('[function isPathExist]: каталога нет');
+          // console.log('[function isPathExist]: каталога нет', pathS);
           resolve(false);
           return;
         }
-        console.log('[Ошибка. function isPathExist]');
+        console.log('[Ошибка. function isPathExist]', pathS);
         console.log(err);
       }
 
-      console.log('[function isPathExist]: каталог есть');
+      // console.log('[function isPathExist]: каталог уже есть', pathS);
       resolve(true);
     });
   });
@@ -208,14 +245,14 @@ async function removeDir(pathRm) {
   return new Promise((resolve) => {
     const pathToDir = path.join(pathRm, path.sep);
 
-    console.log('[function removeDir: pathRm]', pathToDir);
+    console.log('[function removeDir]: удаление', pathToDir);
 
     fs.rm(pathToDir, { recursive: true, force: true }, (err) => {
       if (err) {
-        console.log('[Ошибка. function removeDir]');
+        console.log('Ошибка. [function removeDir]');
         console.log(err);
       }
-      console.log('function removeDir: done', pathRm);
+      console.log('[function removeDir]: удаление завершено', pathRm);
       resolve();
     });
   });
@@ -332,3 +369,174 @@ async function createStyles() {
   await writeFile(filesNameTemplates, 'style.css');
   console.log('[function createStyles]: Бандл style.css создан');
 }
+
+/**
+ * Копирует assets папку в project-dist/assets.
+ *
+ * @param {*} params
+ */
+async function copyAssets() {
+  console.log('[function copyAssets]: копирование папки assets');
+  // проверить есть ли оригинальная папка Assets?
+  const pathAssets = path.resolve(__dirname, 'assets');
+  const isAssets = isPathExist(pathAssets);
+  if (!isAssets) {
+    console.log(
+      '[function copyAssets]: Папка assets не найдена. Работа завершена',
+    );
+    return;
+  }
+
+  // создать папку копию Assets
+  const pathCopyAssets = await copyDir(
+    path.resolve(__dirname, 'assets'),
+    path.resolve(__dirname, 'project-dist', 'assets'),
+  );
+
+  console.log('[function copyAssets]: pathCopyAssets', pathCopyAssets);
+}
+
+// ============================================
+
+/**
+ * Копирование папки
+ *
+ * @param {string} pathToDir  - путь до папки
+ */
+async function copyDir(pathToDir, pathCopyDir) {
+  console.log('start function copyDir()');
+
+  // проверка - явл ли путь папкой
+  if (!(await isDir(pathToDir))) {
+    console.log(
+      `\n\n[Ошибка][Путь ${pathToDir} не является папкой. Проверьте путь.]\n\n`,
+    );
+  }
+
+  // проверить есть уже папка для копирования если есть то удалить
+  const isCopyDirExist = await isPathExist(path.resolve(pathCopyDir));
+  if (isCopyDirExist) {
+    await removeDir(pathCopyDir);
+    console.log(`Папка ${pathCopyDir} удалена`);
+  }
+
+  // создать папку для копирования
+  // имя папки копирования
+
+  const pathDirToCopy = await createDir(pathCopyDir);
+  console.log('pathDirToCopy', pathDirToCopy);
+
+  // определить файлы для копирования
+  const files = await getFileListToCopy(pathToDir);
+  console.log('files files');
+  console.log(files);
+
+  const onlyFiles = [];
+  const onlyDirs = [];
+
+  for await (const el of files) {
+    if (el.isDirectory()) {
+      await copyDir(
+        el.path,
+        path.resolve(pathDirToCopy, path.basename(el.path)),
+      );
+      onlyDirs.push(el);
+    } else {
+      onlyFiles.push(el);
+    }
+  }
+
+  // const only2Files = await Promise.all(
+  //   files.filter((el) => {
+  //     return new Promise((resolve) => {
+  //       //
+
+  //       console.log(el.isDirectory());
+
+  //       if (el.isDirectory()) {
+  //         // await copyDir(
+  //         //   el.path,
+  //         //   path.resolve(pathDirToCopy, path.basename(el.path)),
+  //         // );
+  //         resolve(false);
+  //         return false;
+  //       } else {
+  //         resolve(true);
+  //         return true;
+  //       }
+
+  //       //
+  //     });
+  //     //
+  //   }),
+  // );
+  // console.log('onlyFiles=======================');
+  // console.log(onlyFiles);
+
+  // скопировать файлы
+  if (onlyFiles.length > 0) {
+    const copyF = await copyFiles(onlyFiles, pathToDir, pathDirToCopy);
+    console.log('// скопировать файлы const copyF = await  copyFiles');
+    console.log(copyF);
+  }
+
+  return pathCopyDir;
+}
+
+/**
+ * является ли путь папкой
+ *
+ * @param {string} dir - путь к папке
+ */
+async function isDir(dir) {
+  return new Promise((resolve) => {
+    fs.stat(dir, (err, stats) => {
+      if (err) {
+        console.log('[isDir()]: пути не существует', err);
+        return;
+      }
+
+      resolve(stats.isDirectory());
+    });
+  });
+}
+
+/**
+ * получить файлы в папке
+ *
+ * @param {string} pathToDir - путь к папке
+ */
+async function getFileListToCopy(pathToDir) {
+  // const files = await readdir(pathToDir);
+  const files = await readdir(pathToDir, { withFileTypes: true });
+  console.log(files);
+  return files;
+}
+
+/**
+ * Копирование списка файлов из {srcPathDir} папки в папку {copyPathDir}
+ *
+ * @param {Array} fileList - массив строк - имена файлов в папке для копирования
+ * @param {*} srcPathDir
+ * @param {*} copyPathDir
+ * @returns
+ */
+async function copyFiles(fileList, srcPathDir, copyPathDir) {
+  console.log('fileList');
+  console.log(fileList);
+
+  const f = await Promise.all(
+    fileList.map((file) => {
+      const src = path.resolve(srcPathDir, file.name);
+      const target = path.resolve(copyPathDir, file.name);
+      copyFile(src, target);
+      return target;
+    }),
+  );
+
+  console.log('function copyFiles: done');
+  console.log(f);
+  return f;
+}
+
+// ============================================
