@@ -10,7 +10,8 @@ const evEmitter = require('events');
 const bEmit = new evEmitter();
 
 // сформировать файл index.html из шаблонов папки components
-bEmit.on('createFolderBundleDone', createIndex);
+// bEmit.on('createFolderBundleDone', createIndex);
+bEmit.on('createFolderBundleDone', writeFileIndex);
 
 // Компилирует стили из styles папки в один файл
 //  и помещает его в project-dist/style.css.
@@ -130,13 +131,15 @@ async function getFileContent() {
 function getNameBlocks(str) {
   const regexp = /\{\{{1}(\w+)\}\}{1}/gim;
   const search = str.matchAll(regexp);
-  console.log('search:');
+  console.log('[function getNameBlocks]: поиск имен блоков шаблонов');
   const blocks = [];
   for (const el of search) {
-    blocks.push(el[1]);
+    // console.log(el);
+
+    blocks.push(el);
   }
-  console.log('Имена блоков шаблона получены.');
-  console.log(blocks);
+  console.log('[function getNameBlocks]: Имена блоков шаблона получены.');
+  // console.log(blocks);
   return blocks;
 }
 
@@ -186,6 +189,8 @@ async function createIndex(bundleFolderPath) {
 
   //   прочитать файл шаблона для index.html
   const templateFile = await getFileContent();
+  console.log('=====================templateFile');
+  console.log(templateFile);
 
   // Получить имена блоков шаблона страницы
   const blockNames = getNameBlocks(templateFile);
@@ -200,7 +205,7 @@ async function createIndex(bundleFolderPath) {
   console.log(filesNameTemplates);
 
   // сопоставить массив блоков и массив файлов
-  // чтобы выявить только одникаовые вхождения
+  // чтобы выявить только однинаковые вхождения
   const compareFiles = compareBlocksToFiles(blockNames, filesNameTemplates);
   console.log('compareFiles');
   console.log(compareFiles);
@@ -209,6 +214,182 @@ async function createIndex(bundleFolderPath) {
   await writeFile(compareFiles, 'index.html');
   console.log('[function createIndex]: Бандл index.html создан');
   return 'bundleFolderPath.Index.html';
+}
+
+/**
+ * записать файл по чанкам используя шаблонный файл
+ * и файлы блоков указанных  в шаблоне
+ * */
+async function writeFileIndex(params) {
+  console.log(`[writeFileIndex]:  старт.`);
+
+  //   прочитать файл шаблона для index.html
+  const templateStream = fs.createReadStream(
+    path.resolve(__dirname, 'template.html'),
+    { encoding: 'utf-8' },
+  );
+
+  // Прочитать папку с блоками для формирования страницы
+  const pathToDirTemplates = path.resolve(__dirname, 'components');
+  const filesNameTemplates = await getFilesTemplates(
+    pathToDirTemplates,
+    '.html',
+  );
+
+  const nameEndFile = 'index.html';
+  // Создать файл index.html
+  const bundle = fs.createWriteStream(
+    path.resolve(__dirname, 'project-dist', nameEndFile),
+  );
+
+  bundle.on('close', (err) => {
+    if (err) {
+      console.log(
+        '[Ошибка][function writeFileIndex]: Ошибка в bundle.on(close)',
+      );
+      console.log(err);
+    }
+
+    // console.log('bundle.writableEnded');
+    // console.log(bundle.writableEnded);
+    console.log(`[writeFileIndex]: Запись ${nameEndFile} окончена`);
+  });
+
+  let dataTemlate = '';
+  await new Promise((resolve) => {
+    templateStream.on('data', async (indexChunk) => {
+      // поиск шаблонов в чанке файла
+      // и вставка соответсвующего контента
+      // из файла с именем найденного шаблона
+      console.log('indexChunk');
+      console.log(indexChunk);
+
+      // Получить имена блоков шаблона страницы
+      const blockNames = getNameBlocks(indexChunk);
+
+      // сопоставить имена блоков шаблона страницы с файлами для формирования страницы
+      for await (const elBlName of blockNames) {
+        for await (const elFileName of filesNameTemplates) {
+          if (elBlName[1] === elFileName.baseName) {
+            const readFile = fs.createReadStream(elFileName.path, {
+              encoding: 'utf-8',
+            });
+            await new Promise((resolve) => {
+              // readFile.pipe(bundle);
+              readFile.on('data', (tempChunk) => {
+                const regexp = new RegExp(
+                  '{{{1}' + elFileName.baseName + '}}{1}',
+                  'gim',
+                );
+                console.log('indexChunk ДО', indexChunk);
+
+                indexChunk = indexChunk.replace(regexp, tempChunk);
+                console.log('indexChunk ПОСЛЕ', indexChunk);
+              });
+
+              readFile.on('close', () => {
+                resolve();
+              });
+            });
+
+            // console.log('elFileName');
+            // console.log(elFileName);
+            // console.log('elBlName');
+            // console.log(elBlName);
+          }
+        }
+      }
+
+      // для каждого найденного шаблона выполнить поиск файла с этим именем
+
+      // вставить замененный контент в index.html
+      console.log('[writeFileIndex]: Запись в index.html контент');
+
+      await new Promise((resolve) => {
+        bundle.write(indexChunk, (err) => {
+          if (err) {
+            console.log(`[Ошибка][writeFileIndex]: Ошибка  bundle.write `);
+          }
+          console.log('[writeFileIndex]: Запись index.html окончена');
+
+          resolve();
+        });
+      });
+
+      console.log('Чтение файла template.html');
+    });
+
+    templateStream.on('close', () => {
+      console.log('Файл template.html прочитан ');
+
+      resolve();
+    });
+  });
+
+  console.log('end');
+  // завершить запись закрыть файл index.html
+  bundle.emit('close');
+  return dataTemlate;
+}
+
+//
+//
+//
+//
+//
+//
+//
+//
+
+/**
+ * Записать из файлов в файл
+ * @param {Array} files - массив файлов для извлечения контента
+ *  и записи в конечный файл
+ * @param {string} nameEndFile - имя конечного файла
+ */
+async function writeFileForChunk(files, nameEndFile) {
+  console.log(`[writeFile]: Запись ${nameEndFile} старт.`);
+
+  // Создать файл бандла
+  const bundle = fs.createWriteStream(
+    path.resolve(__dirname, 'project-dist', nameEndFile),
+  );
+
+  bundle.on('close', (err) => {
+    if (err) {
+      console.log('Ошибка в function writeFileIndex bundle.emit');
+      console.log(err);
+    }
+
+    // console.log('bundle.writableEnded');
+    // console.log(bundle.writableEnded);
+    console.log(`[writeFileIndex]: Запись ${nameEndFile} окончена`);
+  });
+
+  for await (const el of files) {
+    const readFile = fs.createReadStream(el.path);
+    await new Promise((resolve) => {
+      // readFile.pipe(bundle);
+      readFile.on('data', (chunk) => {
+        bundle.write(chunk, (err) => {
+          if (err) {
+            console.log(
+              'Ошибка: function writeFileIndex  bundle.write(chunk,(err)',
+              err,
+            );
+          }
+        });
+      });
+
+      readFile.on('close', () => {
+        resolve();
+      });
+    });
+  }
+
+  // console.log(`bundle.emit('close');`);
+
+  bundle.emit('close');
 }
 
 /**
