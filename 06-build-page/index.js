@@ -167,8 +167,16 @@ async function getFilesTemplates(pathToDir, extname = '.html') {
 
   // добавить в объекты имен файлов строчное имя файла
   fileTemlates.map((curr) => {
-    const extName = path.extname(curr.path);
-    const baseName = path.basename(curr.path, extName);
+    console.log('path.extname(curr.name)');
+    console.log(path.extname(curr.name));
+    console.log('baseName');
+
+    console.log(curr.name);
+    console.log('curr');
+    console.log(curr);
+
+    const extName = path.extname(curr.name);
+    const baseName = path.basename(curr.name, extName);
     curr.baseName = baseName;
     curr.extName = extName;
     curr[baseName] = curr.path;
@@ -231,6 +239,8 @@ async function writeFileIndex(params) {
 
   // Прочитать папку с блоками для формирования страницы
   const pathToDirTemplates = path.resolve(__dirname, 'components');
+  console.log('const filesNameTemplates = await getFilesTemplates(');
+
   const filesNameTemplates = await getFilesTemplates(
     pathToDirTemplates,
     '.html',
@@ -271,9 +281,12 @@ async function writeFileIndex(params) {
       for await (const elBlName of blockNames) {
         for await (const elFileName of filesNameTemplates) {
           if (elBlName[1] === elFileName.baseName) {
-            const readFile = fs.createReadStream(elFileName.path, {
-              encoding: 'utf-8',
-            });
+            const readFile = fs.createReadStream(
+              path.resolve(elFileName.parentPath, elFileName.name),
+              {
+                encoding: 'utf-8',
+              },
+            );
             await new Promise((resolve) => {
               // readFile.pipe(bundle);
               readFile.on('data', (tempChunk) => {
