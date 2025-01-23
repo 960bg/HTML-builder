@@ -159,7 +159,7 @@ async function getFilesTemplates(pathToDir, extname = '.html') {
   }
 
   const fileTemlates = files.filter((el) => {
-    if (el.isFile() && path.extname(el.path) === extname) {
+    if (el.isFile() && path.extname(el.name) === extname) {
       return true;
     }
     return false;
@@ -367,7 +367,7 @@ async function writeFileForChunk(files, nameEndFile) {
   });
 
   for await (const el of files) {
-    const readFile = fs.createReadStream(el.path);
+    const readFile = fs.createReadStream(path.resolve(el.parentPath, el.name));
     await new Promise((resolve) => {
       // readFile.pipe(bundle);
       readFile.on('data', (chunk) => {
@@ -502,7 +502,7 @@ async function writeFile(files, nameEndFile) {
   });
 
   for await (const el of files) {
-    const readFile = fs.createReadStream(el.path);
+    const readFile = fs.createReadStream(path.resolve(el.parentPath, el.name));
     await new Promise((resolve) => {
       // readFile.pipe(bundle);
       readFile.on('data', (chunk) => {
