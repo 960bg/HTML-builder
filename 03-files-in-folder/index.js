@@ -22,7 +22,7 @@ void (async function () {
       const baseName = path.basename(elPath, extName);
       if (stats.isFile()) {
         // console.log(elDirent, stats.size, elDirent.name);
-        return `${baseName} - ${extName} - ${
+        return `${baseName} - ${extName.slice(1)} - ${
           Math.round((stats.size / 1024) * 100) / 100
         }kB`;
       }
