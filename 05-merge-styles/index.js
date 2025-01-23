@@ -41,7 +41,10 @@ async function getFilesStyles(dirPath) {
     // console.log('path.extname(el.path).trim() === .css');
     // console.log(path.extname(el.path).trim() === '.css');
 
-    if (el.isFile() && path.extname(el.path).trim() === '.css') {
+    if (
+      el.isFile() &&
+      path.extname(path.resolve(el.parentPath, el.name)).trim() === '.css'
+    ) {
       return true;
     }
     return false;
@@ -75,7 +78,7 @@ async function writeStyle(files) {
   });
 
   for await (const el of files) {
-    const readFile = fs.createReadStream(el.path);
+    const readFile = fs.createReadStream(path.resolve(el.parentPath, el.name));
     await new Promise((resolve) => {
       // readFile.pipe(bundle);
       readFile.on('data', (chunk) => {
