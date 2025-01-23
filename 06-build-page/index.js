@@ -618,8 +618,8 @@ async function copyDir(pathToDir, pathCopyDir) {
   for await (const el of files) {
     if (el.isDirectory()) {
       await copyDir(
-        el.path,
-        path.resolve(pathDirToCopy, path.basename(el.path)),
+        path.resolve(el.parentPath, el.name),
+        path.resolve(pathDirToCopy, el.name),
       );
       onlyDirs.push(el);
     } else {
